@@ -43,35 +43,33 @@ const initRequest = async () => {
     if (!await isLoggedIn()) { throw new Error("Login failed"); }
     log("Done");
 };
-/*
-const submit = async (id: number, code: string, langname: string) => {
+
+const submit = async (id: string, code: string, langname: string) => {
     try {
-        const URL = "http://uoj.ac/problem/" + id;
+        const contest = id.substr(0, id.length - 1);
+        const problem = id.substr(-1);
+        const URL = `https://codeforces.com/problemset/problem/${contest}/${problem}`;
         const problemPage = await agent
             .get(URL)
-            .set("Host", "uoj.ac")
-            .set("Referer", "http://uoj.ac/login/")
+            .set("Host", "codeforces.com")
             .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36");
-        const csrfToken = .exec(pr)
-        const preCheck = await agent
-            .post(URL)
-            .set("Host", "uoj.ac")
-            .set("Origin", "http://uoj.ac")
-            .set("Referer", URL)
-            .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")
-            .set("X-Requested-With", "XMLHttpRequest")
-            .send("check-answer=");
+        const csrf = /name="X-Csrf-Token" content="(.+)"/.exec(problemPage.text)[1];
+        log(csrf);
         const submissions = await agent
-            .post(URL)
-            .set("Host", "uoj.ac")
-            .set("Origin", "http://uoj.ac")
+            .post(`https://codeforces.com/problemset/submit?csrf_token=${csrf}`)
+            .set("Host", "codeforces.com")
+            .set("Origin", "https://codeforces.com")
             .set("Referer", URL)
             .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")
-            .send("_token=" + encodeURIComponent(token))
-            .send("answer_answer_language=" + encodeURIComponent(langname))
-            .send("answer_answer_upload_type=editor")
-            .send("answer_answer_editor=" + encodeURIComponent(code))
-            .send("submit-answer=answer");
+            .send("csrf_token=" + encodeURIComponent(csrf))
+            .send("ftaa=")
+            .send("bfaa=")
+            .send("action=submitSolutionFormSubmitted")
+            .send("contestId=" + encodeURIComponent(contest))
+            .send("submittedProblemIndex=" + encodeURIComponent(problem))
+            .send("programTypeId=" + encodeURIComponent(langname))
+            .send("source=" + encodeURIComponent(code))
+            .send("tabSize=4");
         const dom = new JSDOM(submissions.text);
         const resultTable = dom.window.document.querySelector("body > div > div.uoj-content > div.table-responsive > table > tbody");
         const resultRows = resultTable.querySelectorAll("tr");
@@ -84,7 +82,7 @@ const submit = async (id: number, code: string, langname: string) => {
     } catch (e) {
         throw e;
     }
-};
+}; /*
 const updateMap = new Map<number, (solution: ISolution) => Promise<void>>();
 
 const convertStatus = (text: string) => {

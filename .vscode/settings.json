@@ -3,5 +3,7 @@
         "activityBar.background": "#22320B",
         "titleBar.activeBackground": "#30460F",
         "titleBar.activeForeground": "#F7FCF1"
-    }
+    },
+    "tslint.autoFixOnSave": true,
+    "eslint.autoFixOnSave": true
 }
