@@ -2,6 +2,7 @@ import debug = require("debug");
 import { readFileSync, statSync } from "fs";
 import { JSDOM } from "jsdom";
 import { join } from "path";
+import { generate } from "randomstring";
 import { agent as createAgent } from "superagent";
 import { ISolution, JudgeFunction, Problem, Solution, SolutionResult } from "./interfaces";
 
@@ -12,7 +13,7 @@ const configPath = join(__dirname, "..", "config.json");
 const config = JSON.parse(readFileSync(configPath).toString());
 
 const agent = createAgent();
-const log = debug("perilla:judger:plugin:uoj");
+const log = debug("perilla:judger:plugin:codeforces");
 
 const isLoggedIn = async () => {
     const result = await agent
@@ -44,8 +45,13 @@ const initRequest = async () => {
     log("Done");
 };
 
+const generateBlankString = () => {
+    return generate({ length: 10, charset: " \t\r\n" });
+};
+
 const submit = async (id: string, code: string, langname: string) => {
     try {
+        code = generateBlankString() + code + generateBlankString();
         const contest = id.substr(0, id.length - 1);
         const problem = id.substr(-1);
         const URL = `https://codeforces.com/problemset/problem/${contest}/${problem}`;
@@ -71,71 +77,61 @@ const submit = async (id: string, code: string, langname: string) => {
             .send("source=" + encodeURIComponent(code))
             .send("tabSize=4");
         const dom = new JSDOM(submissions.text);
-        const resultTable = dom.window.document.querySelector("body > div > div.uoj-content > div.table-responsive > table > tbody");
-        const resultRows = resultTable.querySelectorAll("tr");
-        for (const resultRow of resultRows) {
-            if (!resultRow.childNodes[2]) { continue; }
-            if (resultRow.childNodes[2].textContent !== config.username) { continue; }
-            return parseInt(resultRow.childNodes[0].textContent.trim().substr(1), 10);
+        const resultTable = dom.window.document.querySelector("#pageContent > div.datatable > div:nth-child(6) > table > tbody");
+        for (let i = 1; i < resultTable.children.length; i++) {
+            const resultRow = resultTable.children[i];
+            if (resultRow.children[2].textContent.trim() !== config.username) { continue; }
+            return [contest, resultRow.children[0].textContent.trim()].join("_");
         }
         throw new Error("Submit failed");
     } catch (e) {
         throw e;
     }
-}; /*
-const updateMap = new Map<number, (solution: ISolution) => Promise<void>>();
+};
+const updateMap = new Map<string, (solution: ISolution) => Promise<void>>();
 
 const convertStatus = (text: string) => {
-    try {
-        const score = parseInt(text, 10);
-        if (score < 0 || score > 100 || isNaN(score)) { throw new Error("Invalid score"); }
-        // Cannot parse error
-        return {
-            score,
-            status: score === 100 ? SolutionResult.Accepted : SolutionResult.OtherError,
-        };
-    } catch (e) {
-        switch (text) {
-            case "Waiting":
-            case "Waiting Rejudge":
-                return { status: SolutionResult.WaitingJudge, score: 0 };
-            case "Compiling":
-            case "Judging":
-                return { status: SolutionResult.Judging, score: 0 };
-            case "Compile Error":
-                return { status: SolutionResult.CompileError, score: 0 };
-            case "Judgement Failed":
-                return { status: SolutionResult.JudgementFailed, score: 0 };
+    const _ = (strs: string[]) => {
+        for (const str of strs) {
+            if (text.startsWith(str)) { return true; }
         }
-        return {
-            status: SolutionResult.OtherError,
-            score: 0,
-        };
-    }
+    };
+    if (_(["Happy New Year!", "Accepted"])) { return SolutionResult.Accepted; }
+    if (_(["Rejected", "Judgement failed", "Denial of judgement"])) { return SolutionResult.JudgementFailed; }
+    if (_(["Wrong answer", "Hacked", "Partial"])) { return SolutionResult.WrongAnswer; }
+    if (_(["Runtime error", "Security violated", "Input preparation failed"])) { return SolutionResult.RuntimeError; }
+    if (_(["Time limit exceeded", "Idleness limit exceeded"])) { return SolutionResult.TimeLimitExceeded; }
+    if (_(["Memory limit exceeded"])) { return SolutionResult.MemoryLimitExceeded; }
+    if (_(["Compilation error"])) { return SolutionResult.CompileError; }
+    if (_(["Presentation error"])) { return SolutionResult.PresentationError; }
+    if (_(["Skipped"])) { return SolutionResult.Skipped; }
+    if (_(["Running"])) { return SolutionResult.Judging; }
+    if (_(["In queue", "Pending"])) { return SolutionResult.WaitingJudge; }
+    return SolutionResult.OtherError;
 };
 
-const fetch = async (runID: number) => {
+const fetch = async (runID: string) => {
     try {
-        const URL = "http://uoj.ac/submission/" + runID;
+        const [contest, sid] = runID.split("_");
+        const URL = `https://codeforces.com/problemset/submission/${contest}/${sid}`;
         const submissionPage = await agent
             .get(URL)
-            .set("Host", "uoj.ac")
-            .set("Referer", "http://uoj.ac/submissions/")
+            .set("Host", "codeforces.com")
             .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36");
         const dom = new JSDOM(submissionPage.text);
-        const resultRow = dom.window.document.querySelector("body > div > div.uoj-content > div.table-responsive > table > tbody").childNodes[0];
-        const { status, score } = convertStatus(resultRow.childNodes[3].textContent.trim());
+        const resultRow = dom.window.document.querySelector("#pageContent > div.datatable > div:nth-child(6) > table > tbody > tr:nth-child(2)");
+        // const { status, score } = convertStatus(resultRow.childNodes[3].textContent.trim());
+        const status = convertStatus(resultRow.children[4].textContent.trim());
+        const score = status === SolutionResult.Accepted ? 100 : 0;
         const result: ISolution = {
             status,
             score,
             details: {
                 runID,
-                time: resultRow.childNodes[4].textContent.trim(),
-                memory: resultRow.childNodes[5].textContent.trim(),
-                remoteUser: resultRow.childNodes[2].textContent.trim(),
-                remoteProblem: resultRow.childNodes[1].textContent.trim(),
-                submitTime: resultRow.childNodes[8].textContent.trim(),
-                judgeTime: resultRow.childNodes[9].textContent.trim(),
+                time: resultRow.children[5].textContent.trim(),
+                memory: resultRow.children[6].textContent.trim(),
+                submitTime: resultRow.children[7].textContent.trim(),
+                judgeTime: resultRow.children[8].textContent.trim(),
             },
         };
         return result;
@@ -159,6 +155,22 @@ const updateSolutionResults = async () => {
     setTimeout(updateSolutionResults, UPDATE_INTERVAL);
 };
 
+const convertLanguage = (language: string) => {
+    switch (language) {
+        case "c": return "43";
+        case "cpp11": return "42";
+        case "cpp14": return "50";
+        case "cpp17": return "54";
+        case "csharp": return "9";
+        case "go": return "32";
+        case "java": return "36";
+        case "python2": return "7";
+        case "python3": return "31";
+        case "node": return "55";
+    }
+    return null;
+};
+
 const main: JudgeFunction = async (problem, solution, resolve, update) => {
     if (Problem.guard(problem)) {
         if (Solution.guard(solution)) {
@@ -170,20 +182,7 @@ const main: JudgeFunction = async (problem, solution, resolve, update) => {
                 }
             }
             try {
-                let langname = null;
-                if (solution.language === "c") {
-                    langname = "C";
-                } else if (solution.language === "cpp98") {
-                    langname = "C++";
-                } else if (solution.language === "cpp11") {
-                    langname = "C++11";
-                } else if (solution.language === "java") {
-                    langname = "Java8";
-                } else if (solution.language === "python3") {
-                    langname = "Python3";
-                } else if (solution.language === "python2") {
-                    langname = "Python2.7";
-                }
+                const langname = convertLanguage(solution.language);
                 if (langname === null) {
                     return update({ status: SolutionResult.JudgementFailed, score: 0, details: { error: "Language rejected" } });
                 }
@@ -210,8 +209,3 @@ const main: JudgeFunction = async (problem, solution, resolve, update) => {
 module.exports = main;
 
 updateSolutionResults();
-*/
-
-(async () => {
-    await initRequest();
-})();

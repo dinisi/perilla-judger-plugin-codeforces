@@ -43,7 +43,7 @@ export type JudgeFunction = (
 ) => Promise<void>;
 
 export const Problem = Record({
-    id: Number,
+    id: String,
 });
 
 export const Solution = Record({
@@ -55,9 +55,7 @@ export interface IDetails {
     time?: string;
     memory?: string;
     error?: string;
-    runID?: number;
-    remoteUser?: string;
+    runID?: string;
     submitTime?: string;
     judgeTime?: string;
-    remoteProblem?: string;
 }

@@ -5,11 +5,11 @@ console.log("Start test...");
 
 judge(
     {
-        id: 1
+        id: '1091A'
     },
     {
         file: 1,
-        language: "cpp98"
+        language: "cpp17"
     },
     (id) => ({
         path: join(__dirname, "" + id),

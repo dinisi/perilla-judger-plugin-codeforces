@@ -18,7 +18,7 @@ var SolutionResult;
     SolutionResult[SolutionResult["OtherError"] = 12] = "OtherError";
 })(SolutionResult = exports.SolutionResult || (exports.SolutionResult = {}));
 exports.Problem = runtypes_1.Record({
-    id: runtypes_1.Number,
+    id: runtypes_1.String,
 });
 exports.Solution = runtypes_1.Record({
     file: runtypes_1.Number,
