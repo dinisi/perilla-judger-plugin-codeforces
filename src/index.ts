@@ -196,7 +196,7 @@ const main: JudgeFunction = async (problem, solution, resolve, update) => {
                 updateMap.set(runID, update);
             } catch (e) {
                 log(e.message);
-                return update({ status: SolutionResult.JudgementFailed, score: 0, details: { error: "Invalid solution" } });
+                return update({ status: SolutionResult.JudgementFailed, score: 0, details: { error: e.message } });
             }
         } else {
             return update({ status: SolutionResult.JudgementFailed, score: 0, details: { error: "Invalid solution" } });

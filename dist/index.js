@@ -218,7 +218,7 @@ const main = async (problem, solution, resolve, update) => {
             }
             catch (e) {
                 log(e.message);
-                return update({ status: interfaces_1.SolutionResult.JudgementFailed, score: 0, details: { error: "Invalid solution" } });
+                return update({ status: interfaces_1.SolutionResult.JudgementFailed, score: 0, details: { error: e.message } });
             }
         }
         else {
