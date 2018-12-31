@@ -1,6 +1,6 @@
 {
   "name": "perilla-judger-plugin-codeforces",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Perilla judge plugin for codeforces",
   "main": "dist/index.js",
   "repository": "https://github.com/dinisi/perilla-judger-plugin-codeforces.git",
@@ -23,6 +23,6 @@
     "tslint": "^5.12.0"
   },
   "scripts": {
-    "postversion": "tsc && git add ."
+    "preversion": "tsc && git add ."
   }
 }
