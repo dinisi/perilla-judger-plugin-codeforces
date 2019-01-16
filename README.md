@@ -11,6 +11,15 @@ Sample `config.json`:
 }
 ```
 
+Sample `config.json` with proxy(socks only):
+```json
+{
+    "username": "xxx",
+    "password": "yyy",
+    "proxy": "socks5://127.0.0.1:1080"
+}
+```
+
 Sample problem config:
 ```json
 {

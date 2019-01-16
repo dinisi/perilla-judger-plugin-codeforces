@@ -1,6 +1,6 @@
 {
   "name": "perilla-judger-plugin-codeforces",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Perilla judge plugin for codeforces",
   "main": "dist/index.js",
   "repository": "https://github.com/dinisi/perilla-judger-plugin-codeforces.git",
@@ -12,6 +12,7 @@
     "path": "^0.12.7",
     "randomstring": "^1.1.5",
     "runtypes": "^3.1.2",
+    "socks-proxy-agent": "^4.0.1",
     "superagent": "^4.1.0",
     "typescript": "^3.2.2"
   },

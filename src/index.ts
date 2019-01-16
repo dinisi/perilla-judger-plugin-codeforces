@@ -3,7 +3,8 @@ import { readFileSync, statSync } from "fs";
 import { JSDOM } from "jsdom";
 import { join } from "path";
 import { generate } from "randomstring";
-import { agent as createAgent } from "superagent";
+import SocksProxyAgent = require("socks-proxy-agent");
+import { agent as createAgent, SuperAgentRequest } from "superagent";
 import { ISolution, JudgeFunction, Problem, Solution, SolutionResult } from "./interfaces";
 
 const MAX_SOURCE_SIZE = 16 * 1024 * 1024;
@@ -15,21 +16,28 @@ const config = JSON.parse(readFileSync(configPath).toString());
 const agent = createAgent();
 const log = debug("perilla:judger:plugin:codeforces");
 
+const proxyWarp = (request: SuperAgentRequest) => {
+    if (config.proxy) {
+        request = request.agent(new SocksProxyAgent(config.proxy));
+    }
+    return request;
+};
+
 const isLoggedIn = async () => {
-    const result = await agent
+    const result = await proxyWarp(agent
         .get("https://codeforces.com/enter")
-        .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36") as any;
+        .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")) as any;
     return !!result.redirects.length;
 };
 
 const initRequest = async () => {
-    const loginPage = await agent
+    const loginPage = await proxyWarp(agent
         .get("https://codeforces.com/enter")
         .set("Host", "codeforces.com")
-        .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36");
+        .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"));
     const csrf = /name="X-Csrf-Token" content="(.+)"/.exec(loginPage.text)[1];
     log(csrf);
-    await agent
+    await proxyWarp(agent
         .post("https://codeforces.com/enter")
         .set("Host", "codeforces.com")
         .set("Origin", "https://codeforces.com")
@@ -40,7 +48,7 @@ const initRequest = async () => {
         .send("ftaa=")
         .send("bfaa=")
         .send("handleOrEmail=" + encodeURIComponent(config.username))
-        .send("password=" + encodeURIComponent(config.password));
+        .send("password=" + encodeURIComponent(config.password)));
     if (!await isLoggedIn()) { throw new Error("Login failed"); }
     log("Done");
 };
@@ -55,13 +63,13 @@ const submit = async (id: string, code: string, langname: string) => {
         const contest = id.substr(0, id.length - 1);
         const problem = id.substr(-1);
         const URL = `https://codeforces.com/problemset/problem/${contest}/${problem}`;
-        const problemPage = await agent
+        const problemPage = await proxyWarp(agent
             .get(URL)
             .set("Host", "codeforces.com")
-            .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36");
+            .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"));
         const csrf = /name="X-Csrf-Token" content="(.+)"/.exec(problemPage.text)[1];
         log(csrf);
-        const submissions = await agent
+        const submissions = await proxyWarp(agent
             .post(`https://codeforces.com/problemset/submit?csrf_token=${csrf}`)
             .set("Host", "codeforces.com")
             .set("Origin", "https://codeforces.com")
@@ -75,7 +83,7 @@ const submit = async (id: string, code: string, langname: string) => {
             .send("submittedProblemIndex=" + encodeURIComponent(problem))
             .send("programTypeId=" + encodeURIComponent(langname))
             .send("source=" + encodeURIComponent(code))
-            .send("tabSize=4");
+            .send("tabSize=4"));
         const dom = new JSDOM(submissions.text);
         const resultTable = dom.window.document.querySelector("#pageContent > div.datatable > div:nth-child(6) > table > tbody");
         for (let i = 1; i < resultTable.children.length; i++) {
@@ -114,10 +122,10 @@ const fetch = async (runID: string) => {
     try {
         const [contest, sid] = runID.split("_");
         const URL = `https://codeforces.com/problemset/submission/${contest}/${sid}`;
-        const submissionPage = await agent
+        const submissionPage = await proxyWarp(agent
             .get(URL)
             .set("Host", "codeforces.com")
-            .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36");
+            .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36"));
         const dom = new JSDOM(submissionPage.text);
         const resultRow = dom.window.document.querySelector("#pageContent > div.datatable > div:nth-child(6) > table > tbody > tr:nth-child(2)");
         // const { status, score } = convertStatus(resultRow.childNodes[3].textContent.trim());
